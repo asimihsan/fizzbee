@@ -14,3 +14,9 @@
 
 # It seems some files within .idea/ can be shared. But for now ignoring all
 /.idea/
+
+# explorer (npm)
+explorer/node_modules/
+
+# gradle (mbt/lib/java)
+.gradle/

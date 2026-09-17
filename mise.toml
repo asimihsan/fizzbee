@@ -1,0 +1,22 @@
+# Dev toolchain for building FizzBee from source with mise (https://mise.jdx.dev).
+#   mise trust && mise install
+#   mise run build          # bazel build //:fizzbee //parser/...
+#   ./fizz path/to/Spec.fizz
+# bazel is pinned to a concrete 8.x (matching .bazelversion); bazel 9 removed
+# the native py_* rules this repo's BUILD files still use.
+[tools]
+bazel = "8.8.0"
+node = "24"        # explorer/ (npm start -- <out/run_dir>)
+
+[env]
+# macOS: build against the Command Line Tools SDK so clang's SDKSettings.json
+# dependency falls under a rules_cc builtin include directory (see .bazelrc).
+_.source = "{{ config_root }}/.mise/env.sh"
+
+[tasks.build]
+description = "Build the model checker and parser"
+run = "bazel build //:fizzbee //parser/..."
+
+[tasks.explorer-install]
+description = "Install the explorer's npm dependencies"
+run = "npm install --prefix explorer --no-fund --no-audit"
