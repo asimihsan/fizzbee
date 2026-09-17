@@ -1,0 +1,15 @@
+# Platform-specific configs (build:macos, build:linux, ...) apply automatically.
+common --enable_platform_specific_config
+
+# macOS: forward DEVELOPER_DIR from the shell into toolchain autoconfiguration
+# and into compile actions (target and exec configurations). When it points at
+# the Command Line Tools, clang's dependency files list
+# /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/SDKSettings.json, which
+# rules_cc whitelists as a builtin include directory; the Xcode.app SDK root is
+# not whitelisted, so with recent Xcode/clang (which record SDKSettings.json in
+# depfiles) the build fails with "absolute path inclusion(s) found".
+# Inert when DEVELOPER_DIR is unset. Example:
+#   DEVELOPER_DIR=/Library/Developer/CommandLineTools bazel build //:fizzbee
+build:macos --repo_env=DEVELOPER_DIR
+build:macos --action_env=DEVELOPER_DIR
+build:macos --host_action_env=DEVELOPER_DIR

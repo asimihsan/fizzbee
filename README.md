@@ -102,6 +102,32 @@ echo "build --host_cxxopt=-std=c++14 --cxxopt=-std=c++14" >> .bazelrc
 </details>
 
 <details>
+<summary><strong> 3. macOS build error: "absolute path inclusion(s) found" mentioning SDKSettings.json</strong></summary>
+
+Recent Xcode/clang records `.../MacOSX.sdk/SDKSettings.json` in the compiler's
+dependency files. Bazel's header validation only accepts absolute paths under
+the toolchain's builtin include directories; `rules_cc` whitelists the Command
+Line Tools SDK root (`/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk`) but
+not the SDK inside `Xcode.app`, so a build that resolves to Xcode's SDK fails with:
+
+```
+Compiling upb/mem/alloc.c [for tool] failed: absolute path inclusion(s) found in rule '@@protobuf+//upb/mem:mem':
+  '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/SDKSettings.json'
+```
+
+Build against the Command Line Tools instead. The repo's `.bazelrc` forwards
+`DEVELOPER_DIR` into toolchain autoconfiguration and into both target and exec
+compile actions, so this is enough:
+
+```bash
+DEVELOPER_DIR=/Library/Developer/CommandLineTools bazel build //:fizzbee //parser/...
+```
+
+(Install the tools with `xcode-select --install` if that directory is missing.)
+
+</details>
+
+<details>
 <summary><strong> 2. macOS quarantine warning for prebuilt binaries</strong></summary>
 
 When running the `fizzbee-20250213-macos_arm` binary on macOS Sequoia 15.3 (build 24D60), you may encounter this warning:
