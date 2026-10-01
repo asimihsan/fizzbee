@@ -1,6 +1,8 @@
 name: FizzBee validation investigation
 
 on:
+  push:
+    branches: [validation/fizzbee-ci-20261001]
   workflow_dispatch:
 
 concurrency:
@@ -20,7 +22,7 @@ jobs:
           - lane: upstream
             revision: c6f1411f84cc73607273887ccbfc5ccca0eb27e6
           - lane: integration
-            revision: 7a9089ada76248b93102890a2903f3a4d745ff65
+            revision: 8593ab825e3ed82a3e4ee5b92413c6a08c9edc3c
     env:
       CI: "true"
       NO_COLOR: "1"
