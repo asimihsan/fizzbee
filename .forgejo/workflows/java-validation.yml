@@ -1,0 +1,71 @@
+name: FizzBee Java runtime investigation
+
+on:
+  push:
+    branches: [validation/fizzbee-java-ci-20261001]
+  workflow_dispatch:
+
+concurrency:
+  group: fizzbee-java-validation-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    name: ${{ matrix.lane }} (Linux ARM64, remote JDK 25)
+    runs-on: [self-hosted, linux, arm64, ec2-spot, docker]
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - lane: upstream
+            revision: c6f1411f84cc73607273887ccbfc5ccca0eb27e6
+          - lane: integration
+            revision: 8593ab825e3ed82a3e4ee5b92413c6a08c9edc3c
+    env:
+      CI: "true"
+      NO_COLOR: "1"
+      USE_BAZEL_VERSION: "8.8.1"
+      MISE_NO_HOOKS: "1"
+    steps:
+      - name: Check out exact source revision
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ matrix.revision }}
+          persist-credentials: false
+      - name: Verify source and platform
+        env:
+          EXPECTED_REVISION: ${{ matrix.revision }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_REVISION"
+          test "$(uname -m)" = aarch64
+          printf 'tested_revision=%s\n' "$(git rev-parse HEAD)"
+          uname -a
+          node --version
+          python3 --version
+          command -v mise
+          mise --version
+      - name: Install pinned Bazel
+        shell: bash
+        run: |
+          set -euo pipefail
+          mise install bazel@8.8.1
+          mise exec bazel@8.8.1 -- bazel --version
+      - name: Test with Bazel remote JDK 25
+        shell: bash
+        run: |
+          set +e
+          set -uo pipefail
+          evidence_dir="$(mktemp -d)"
+          printf 'CHECK_BEGIN full-bazel-remotejdk25\n'
+          mise exec bazel@8.8.1 -- bazel test //... \
+            --java_runtime_version=remotejdk_25 \
+            --tool_java_runtime_version=remotejdk_25 \
+            --test_output=errors 2>&1 | tee "$evidence_dir/full-bazel-remotejdk25.log"
+          status=${PIPESTATUS[0]}
+          printf 'CHECK_END full-bazel-remotejdk25 exit=%s\n' "$status"
+          printf 'VALIDATION_RESULTS revision=%s full-bazel-remotejdk25=%s\n' "$(git rev-parse HEAD)" "$status"
+          exit "$status"
