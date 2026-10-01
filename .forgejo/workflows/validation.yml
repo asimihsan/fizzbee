@@ -1,0 +1,84 @@
+name: FizzBee validation investigation
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: fizzbee-validation-${{ github.run_id }}
+  cancel-in-progress: false
+
+jobs:
+  compare:
+    name: ${{ matrix.lane }} (Linux ARM64)
+    runs-on: [self-hosted, linux, arm64, ec2-spot, docker]
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - lane: upstream
+            revision: c6f1411f84cc73607273887ccbfc5ccca0eb27e6
+          - lane: integration
+            revision: 7a9089ada76248b93102890a2903f3a4d745ff65
+    env:
+      CI: "true"
+      NO_COLOR: "1"
+      USE_BAZEL_VERSION: "8.8.1"
+      MISE_NO_HOOKS: "1"
+    steps:
+      - name: Check out exact source revision
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.revision }}
+          persist-credentials: false
+      - name: Verify source and platform
+        env:
+          EXPECTED_REVISION: ${{ matrix.revision }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$EXPECTED_REVISION"
+          test "$(uname -m)" = aarch64
+          printf 'tested_revision=%s\n' "$(git rev-parse HEAD)"
+          uname -a
+          python3 --version
+          command -v mise
+          mise --version
+      - name: Install pinned Bazel
+        shell: bash
+        run: |
+          set -euo pipefail
+          mise install bazel@8.8.1
+          mise exec bazel@8.8.1 -- bazel --version
+      - name: Execute all checks and report each result
+        shell: bash
+        run: |
+          set +e
+          set -uo pipefail
+          evidence_dir="$(mktemp -d)"
+          failed=0
+          run_check() {
+            local name="$1"
+            shift
+            printf '\nCHECK_BEGIN %s\n' "$name"
+            "$@" 2>&1 | tee "$evidence_dir/$name.log"
+            local status=${PIPESTATUS[0]}
+            printf 'CHECK_END %s exit=%s\n' "$name" "$status"
+            printf '%s %s\n' "$name" "$status" >> "$evidence_dir/results.txt"
+            if [ "$status" -ne 0 ]; then failed=1; fi
+            return 0
+          }
+          run_check checker-build mise exec bazel@8.8.1 -- bazel build //:fizzbee //parser/...
+          build_status="$(awk '$1 == "checker-build" {print $2}' "$evidence_dir/results.txt")"
+          run_check full-bazel mise exec bazel@8.8.1 -- bazel test //... --test_output=errors
+          run_check go-tests mise exec bazel@8.8.1 -- bazel test //lib:lib_test //modelchecker:modelchecker_test --test_output=errors
+          if [ "$build_status" -eq 0 ]; then
+            run_check references python3 -u test_references.py
+          else
+            printf 'references SKIPPED: checker build failed\n' | tee -a "$evidence_dir/results.txt"
+            failed=1
+          fi
+          printf '\nVALIDATION_RESULTS revision=%s\n' "$(git rev-parse HEAD)"
+          cat "$evidence_dir/results.txt"
+          exit "$failed"
