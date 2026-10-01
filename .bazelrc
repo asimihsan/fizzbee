@@ -1,0 +1,10 @@
+# Platform-specific configs (build:macos, build:linux, ...) apply automatically.
+common --enable_platform_specific_config
+
+# macOS: forward an explicitly supplied developer directory into repository
+# configuration and both target and host actions. When unset, these options
+# leave developer-directory selection to the toolchain.
+# Example: DEVELOPER_DIR=/Library/Developer/CommandLineTools bazel build //:fizzbee
+build:macos --repo_env=DEVELOPER_DIR
+build:macos --action_env=DEVELOPER_DIR
+build:macos --host_action_env=DEVELOPER_DIR

@@ -118,6 +118,32 @@ curl -sL $(curl -s https://api.github.com/repos/fizzbee-io/fizzbee/releases/late
 
 </details>
 
+<details>
+<summary><strong> 3. macOS build error: "absolute path inclusion(s) found" mentioning SDKSettings.json</strong></summary>
+
+With some Xcode/clang versions, the compiler records
+`.../MacOSX.sdk/SDKSettings.json` in dependency files. Bazel's header validation only accepts absolute paths under
+the toolchain's builtin include directories. With the current toolchain, the
+Command Line Tools SDK root
+(`/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk`) is accepted, but the SDK inside `Xcode.app` is not. For example, with Bazel 8.8.0 and Xcode 27.0:
+
+```
+Compiling zutil.c [for tool] failed: absolute path inclusion(s) found in rule '@@zlib+//:z':
+  '/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk/SDKSettings.json'
+```
+
+Build against the Command Line Tools instead. The repo's `.bazelrc` forwards
+`DEVELOPER_DIR` into toolchain autoconfiguration and into both target and exec
+compile actions, so this is enough:
+
+```bash
+DEVELOPER_DIR=/Library/Developer/CommandLineTools bazel build //:fizzbee //parser/...
+```
+
+(Install the tools with `xcode-select --install` if that directory is missing.)
+
+</details>
+
 # AI Coding Assistant Skills
 
 FizzBee provides skills for AI coding assistants (Claude Code, Cursor, Gemini CLI, and other tools that support the [Agent Skills](https://agentskills.io) standard). The skills give your AI assistant built-in knowledge of the FizzBee language, how to run the model checker, how to debug specs, and how to write model-based tests — without you having to explain any of it.
