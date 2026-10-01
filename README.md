@@ -61,6 +61,29 @@ Example:
 
 Note: Generally, you won't need to rebuild the binary, but most likely will be required after each `git pull`.
 
+### Run the Explorer from source
+
+Install Node.js (version 18 or later) and npm. From the source checkout, install
+the Explorer dependencies using the committed lockfile:
+
+```bash
+cd explorer
+npm ci
+npm start -- /absolute/path/to/run-directory
+```
+
+Use the model checker's output directory for a single run (the directory
+containing the `.pb` files), rather than the directory containing the spec.
+The server prints its URL and opens it in your browser. Keep the terminal
+running while using the Explorer; press Ctrl-C to stop the server.
+
+For a PASSED run, the URL is `http://localhost:<port>/explorer.html` and loads
+the state graph for interactive exploration. For a FAILED run that writes
+`nodes_errors.pb` and `adjacency_lists_errors.pb`, the server opens
+`http://localhost:<port>/explorer.html?errors=1` to display the counterexample
+graph for replay. An unsatisfied `exists` assertion may produce no Explorer
+data, so a FAILED verdict alone does not guarantee an explorable counterexample.
+
 ### Troubleshooting on macOS
 
 <details>
